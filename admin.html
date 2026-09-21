@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Earn Cash (Firebase)</title>
+  
+  <!-- Firebase SDKs (Modular Version) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAx8f44o0akz_chAiZP-gcgrtVTgpdv6mA",
+      authDomain: "earncashapp-83f24.firebaseapp.com",
+      projectId: "earncashapp-83f24",
+      storageBucket: "earncashapp-83f24.appspot.com",
+      messagingSenderId: "412313383765",
+      appId: "1:412313383765:web:25f7fcec3568a6e2d375dc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.loadAdminDataFromFirebase = async function() {
+      var tableBody = document.getElementById('adminTableBody');
+      tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #38bdf8; padding: 20px;">Fetching data from Firebase...</td></tr>';
+
+      try {
+        var querySnapshot = await getDocs(collection(db, "withdrawals"));
+        var requests = [];
+        querySnapshot.forEach((docItem) => {
+          var data = docItem.data();
+          requests.push({ id: docItem.id, ...data });
+        });
+
+        document.getElementById('totalReqCount').innerText = requests.length;
+
+        try {
+          var usersSnapshot = await getDocs(collection(db, "users"));
+          document.getElementById('totalUsersCount').innerText = usersSnapshot.size;
+        } catch (err) {
+          console.log("Users collection error or empty: ", err);
+          document.getElementById('totalUsersCount').innerText = "0";
+        }
+
+        if (requests.length === 0) {
+          tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">No withdrawal requests found in database.</td></tr>';
+          return;
+        }
+
+        var html = '';
+        requests.forEach(function(item) {
+          var statusBadge = item.status === 'Paid' 
+            ? '<span class="badge-paid">Paid</span>' 
+            : '<span class="badge-pending">Pending</span>';
+          
+          var actionBtn = item.status === 'Pending' 
+            ? '<button class="action-btn" onclick="updateStatusInFirebase(\'' + item.id + '\')">Mark Paid</button>' 
+            : '<span style="color:#64748b; font-size:12px;">Completed</span>';
+
+          html += '<tr>';
+          html += '<td style="font-weight:600; color:#38bdf8;">' + (item.detail || 'N/A') + '</td>';
+          html += '<td>' + (item.type || 'UPI') + '</td>';
+          html += '<td style="font-weight:bold; color:#22c55e;">₹' + (item.amount || 0) + '</td>';
+          html += '<td>' + (item.coins || 0) + '</td>';
+          html += '<td style="color:#94a3b8; font-size:12px;">' + (item.date || '-') + '</td>';
+          html += '<td>' + statusBadge + '</td>';
+          html += '<td>' + actionBtn + '</td>';
+          html += '</tr>';
+        });
+
+        tableBody.innerHTML = html;
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+        tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #ef4444; padding: 20px;">Error loading data from Firebase!</td></tr>';
+      }
+    };
+
+    window.updateStatusInFirebase = async function(docId) {
+      try {
+        var docRef = doc(db, "withdrawals", docId);
+        await updateDoc(docRef, { status: "Paid" });
+        alert("Status updated to Paid successfully!");
+        window.loadAdminDataFromFirebase();
+      } catch (error) {
+        console.error("Error updating status: ", error);
+        alert("Failed to update status.");
+      }
+    };
+
+    window.onload = function() {
+      window.loadAdminDataFromFirebase();
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, sans-serif; }
+    body { background: #070d1b; color: #ffffff; padding: 20px; }
+    .admin-container { max-width: 1000px; margin: 0 auto; }
+    .admin-header { display: flex; justify-content: space-between; align-items: center; background: #111a33; padding: 20px; border-radius: 16px; margin-bottom: 20px; border: 1px solid #1e293b; }
+    .admin-title { font-size: 22px; font-weight: 900; color: #38bdf8; display: flex; align-items: center; gap: 10px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .stat-card { background: #111a33; border: 1px solid #1e293b; padding: 20px; border-radius: 16px; text-align: left; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    .stat-title { font-size: 13px; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+    .stat-value { font-size: 26px; font-weight: 900; color: #f59e0b; }
+    .card { background: #111a33; border: 1px solid #1e293b; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); }
+    .section-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; text-align: left; color: #ffffff; }
+    .table-responsive { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #1e293b; color: #38bdf8; padding: 12px 15px; font-size: 13px; font-weight: 700; }
+    td { padding: 14px 15px; border-bottom: 1px solid #1e293b; font-size: 14px; color: #e2e8f0; }
+    .badge-pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+    .badge-paid { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; }
+    .action-btn { background: #22c55e; color: white; border: none; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; }
+    .refresh-btn { background: #4f46e5; color: white; border: none; padding: 8px 16px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    
+    <!-- Top Header -->
+    <div class="admin-header">
+      <div class="admin-title">⚡ Firebase Admin Dashboard</div>
+      <button class="refresh-btn" onclick="loadAdminDataFromFirebase()">🔄 Refresh Firebase Data</button>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-title">Total Requests in DB</div>
+        <div class="stat-value" id="totalReqCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-title">Total Users (App Users)</div>
+        <div class="stat-value" id="totalUsersCount" style="color: #38bdf8;">0</div>
+      </div>
+    </div>
+
+    <!-- Withdrawal Requests Table Card -->
+    <div class="card">
+      <div class="section-title">📋 Live Database Withdrawal Requests</div>
+      
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>User Detail (UPI/Email)</th>
+              <th>Method</th>
+              <th>Amount</th>
+              <th>Coins</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody">
+            <tr>
+              <td colspan="7" style="text-align: center; color: #94a3b8; padding: 20px;">Loading database...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
